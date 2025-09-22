@@ -1,1 +1,5 @@
 /old
+.gitignore
+/node_modules
+*.pbf
+*.json
