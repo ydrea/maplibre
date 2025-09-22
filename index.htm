@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MapLibre Vector Tiles – Basemap & Layers</title>
+<link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet"/>
+<style>
+  body, html { margin:0; padding:0; font-family:sans-serif; height:100%; }
+  #map { width:100%; height:65%; }
+  #controls { height:35%; background:#f0f0f0; padding:10px; overflow:auto; display:flex; flex-direction:column; gap:10px; }
+  .basemap-controls, .layer-controls, .zoom-controls { display:flex; flex-wrap:wrap; gap:10px; }
+  label, button { cursor:pointer; }
+  input[type=checkbox], input[type=radio] { margin-right:5px; }
+  .coordinates { margin-top:10px; font-family:monospace; background:#333; color:white; padding:5px; border-radius:5px; width:fit-content; }
+  .zoom-controls button { padding:5px 10px; border:none; border-radius:5px; background:#3498db; color:white; }
+  .layer-controls label { padding:2px 5px; border-radius:3px; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="controls">
+  <div class="basemap-controls">
+    <label><input type="radio" name="basemap" checked onchange="changeStyle('custom')"> Custom Croatia</label>
+    <label><input type="radio" name="basemap" onchange="changeStyle('osm')"> OSM Bright</label>
+    <label><input type="radio" name="basemap" onchange="changeStyle('carto-positron')"> Positron</label>
+    <label><input type="radio" name="basemap" onchange="changeStyle('carto-dark')"> Dark</label>
+    <label><input type="radio" name="basemap" onchange="changeStyle('carto-voyager')"> Voyager</label>
+  </div>
+
+  <div class="layer-controls" id="layer-controls"></div>
+
+  <div class="zoom-controls">
+    <button onclick="zoomToCroatia()">Zoom to Croatia</button>
+    <button onclick="resetView()">Reset View</button>
+  </div>
+
+  <div class="coordinates" id="coords">Click map for coordinates</div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+<script>
+let map;
+const croatiaBounds=[[13.0,42.0],[20.0,47.0]];
+
+// Base layer sources
+const sources = {
+  custom: {
+    type:'vector',
+    tiles:['https://mjestopodsuncem.synology.me/tiles/osm_croatia/{z}/{x}/{y}.pbf'],
+    minzoom:0, maxzoom:14
+  },
+  osm: { type:'vector', url:'https://demotiles.maplibre.org/style.json' },
+  'carto-positron': { type:'vector', url:'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json' },
+  'carto-dark': { type:'vector', url:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' },
+  'carto-voyager': { type:'vector', url:'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' }
+};
+
+// Layer definitions for Custom Croatia
+const layerDefs = [
+  { id:'water', type:'fill', 'source-layer':'water', paint:{'fill-color':'#42a5f5','fill-opacity':1}, color:'#42a5f5' },
+  { id:'forest', type:'fill', 'source-layer':'wood', paint:{'fill-color':'#228b22','fill-opacity':1}, color:'#228b22' },
+  { id:'roads', type:'line', 'source-layer':'transportation', paint:{'line-color':'#aaa','line-width':2} },
+  { id:'landuse', type:'fill', 'source-layer':'landuse', paint:{'fill-color':'brown','fill-opacity':1}, color:'brown' },
+  { id:'buildings', type:'fill', 'source-layer':'buildings', paint:{'fill-color':'violet','fill-outline-color':'black','fill-opacity': 1}, color:'black' },
+
+];
+
+const visibleLayers = {};
+layerDefs.forEach(l => visibleLayers[l.id] = true);
+
+// Contrast helper
+function getContrastYIQ(hexcolor){
+  if(!hexcolor) return '#000';
+  hexcolor = hexcolor.replace('#','');
+  const r=parseInt(hexcolor.substr(0,2),16);
+  const g=parseInt(hexcolor.substr(2,2),16);
+  const b=parseInt(hexcolor.substr(4,2),16);
+  const yiq = ((r*299)+(g*587)+(b*114))/1000;
+  return (yiq >= 128) ? '#000':'#fff';
+}
+
+// Initialize map
+function initMap() {
+  map = new maplibregl.Map({
+    container:'map',
+    style:createMapStyle('custom'),
+    center:[15.2,45.1],
+    zoom:7
+  });
+
+  map.addControl(new maplibregl.NavigationControl());
+  map.addControl(new maplibregl.ScaleControl());
+
+  map.on('click', e => {
+    const lat=e.lngLat.lat.toFixed(6), lng=e.lngLat.lng.toFixed(6);
+    document.getElementById('coords').innerHTML = `Lat: ${lat} | Lng: ${lng} | Zoom: ${map.getZoom().toFixed(2)}`;
+  });
+
+  map.on('styledata', () => {
+    applyLayerVisibility();
+    buildLayerControls(); // build checkboxes only after layers exist
+  });
+}
+
+// Create style object for Custom Croatia or return URL for other basemaps
+function createMapStyle(name){
+  if(name==='custom'){
+    return {
+      version:8,
+      sources:{croatia:sources.custom},
+      layers:[
+        {id:'background', type:'background', paint:{'background-color':'#f8f4e3'}},
+        ...layerDefs.map(l=>({
+          id:l.id, type:l.type, source:'croatia', 'source-layer':l['source-layer'], paint:l.paint
+        }))
+      ]
+    };
+  } else {
+    return sources[name].url;
+  }
+}
+
+// Build layer checkboxes dynamically
+function buildLayerControls(){
+  const container = document.getElementById('layer-controls');
+  container.innerHTML='';
+  layerDefs.forEach(l=>{
+    const label = document.createElement('label');
+    label.style.backgroundColor = l.color;
+    label.style.color = getContrastYIQ(l.color);
+    label.style.padding = '2px 5px';
+    label.style.borderRadius = '3px';
+
+    const cb = document.createElement('input');
+    cb.type='checkbox';
+    cb.checked = visibleLayers[l.id];
+    cb.onchange = ()=> toggleLayer(l.id, cb.checked);
+
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' '+(l.label || l.id)));
+    container.appendChild(label);
+  });
+}
+
+// Toggle layer visibility
+function toggleLayer(id, show){
+  visibleLayers[id] = show;
+  if(map.getLayer(id)){
+    map.setLayoutProperty(id,'visibility', show ? 'visible':'none');
+  }
+}
+
+// Change basemap/style
+function changeStyle(name){
+  map.setStyle(createMapStyle(name));
+
+  map.once('styledata', () => {
+    if(name !== 'custom'){
+      // ✅ Add Croatia overlay on top of Carto Voyager (or any external basemap)
+      if (!map.getSource('croatia')) {
+        map.addSource('croatia', sources.custom);
+      }
+
+//helper
+function findTopLayerId(){
+  // Find the first symbol layer (usually labels)
+  const layers = map.getStyle().layers;
+  for (let i=0; i<layers.length; i++){
+    if (layers[i].type === 'symbol'){
+      return layers[i].id;
+    }
+  }
+  return null; // fallback → add on top
+}
+
+//
+ layerDefs.forEach(l => {
+  if (!map.getLayer(l.id)) {
+    map.addLayer({
+      id: l.id,
+      type: l.type,
+      source: 'croatia',
+      'source-layer': l['source-layer'],
+      paint: l.paint
+    }, findTopLayerId()); // 👈 insert before labels
+  }
+});
+
+      applyLayerVisibility();
+    } else {
+      // ✅ For custom style we already include the layers
+      applyLayerVisibility();
+    }
+  });
+}
+
+// Apply visibility of layers after style change
+function applyLayerVisibility(){
+  for(const id in visibleLayers){
+    if(map.getLayer(id)){
+      map.setLayoutProperty(id,'visibility', visibleLayers[id] ? 'visible':'none');
+    }
+  }
+}
+
+// Zoom controls
+function zoomToCroatia(){ map.fitBounds(croatiaBounds); }
+function resetView(){ map.flyTo({center:[15.2,45.1], zoom:7}); }
+
+initMap();
+</script>
+</body>
+</html>
