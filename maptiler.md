@@ -1,0 +1,1 @@
+https://api.maptiler.com/maps/019975f1-0471-70ee-a396-4128df469a8c/style.json?key=oEh7tEurLBOuqu00VxyM

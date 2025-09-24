@@ -1,0 +1,45 @@
+<script>
+// Load Croatia GeoJSON externally
+fetch('Hrvatska.geojson')
+  .then(response => response.json())
+  .then(croatiaGeoJSON => {
+    // Init map
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: brightStyle,
+      center: [15.2, 45.1],
+      zoom: 7
+    });
+
+    map.on('load', () => {
+      // Add Croatia source
+      map.addSource('croatia', {
+        type: 'geojson',
+        data: croatiaGeoJSON
+      });
+
+      // Add mask: world polygon with Croatia cut out
+      const mask = turf.difference(
+        turf.polygon([[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]),
+        croatiaGeoJSON.features[0]  // assumes first feature is Croatia boundary
+      );
+
+      map.addSource('mask', { type: 'geojson', data: mask });
+
+      map.addLayer({
+        id: 'outside-mask',
+        type: 'fill',
+        source: 'mask',
+        paint: { 'fill-color': '#f8f4f0' } // background color
+      }, 'background'); // put just above background
+
+      // Optionally add Croatia outline
+      map.addLayer({
+        id: 'croatia-outline',
+        type: 'line',
+        source: 'croatia',
+        paint: { 'line-color': '#000', 'line-width': 2 }
+      });
+    });
+  });
+</script>

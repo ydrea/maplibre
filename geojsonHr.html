@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<body>
+<div id="map" style="width:100vw;height:100vh;"></div>
+<script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet">
+<script>
+fetch('./Croatia.geojson').then(r => r.json()).then(data => {
+  const map = new maplibregl.Map({
+    container: 'map',
+    style: {
+      version: 8,
+      sources: {
+        croatia: { type: 'geojson', data: data }
+      },
+      layers: [{
+        id: 'croatia-fill',
+        type: 'fill',
+        source: 'croatia',
+        paint: {'fill-color': '#333'}
+      }]
+    },
+    center: [15.2, 45.1],
+    zoom: 7
+  });
+});
+</script>
+</body>
+</html>

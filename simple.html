@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Croatia Map</title>
+    <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet">
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: {
+                version: 8,
+                sources: {
+                    croatia: {
+                        type: 'vector',
+                        tiles: ['http://localhost:8000/tiles/{z}/{x}/{y}.pbf'],
+                        minzoom: 0,
+                        maxzoom: 14
+                    }
+                },
+                layers: [{
+                    id: 'background',
+                    type: 'background',
+                    paint: {'background-color': '#f8f4f0'}
+                }]
+            },
+            center: [15.2, 45.1],
+            zoom: 7
+        });
+
+        // Try to add layers when map loads
+        map.on('load', () => {
+            // Common layer names in MBTiles files
+            const layers = [
+                { name: 'water', type: 'fill', color: '#a0c8f0' },
+                { name: 'landuse', type: 'fill', color: '#90EE90' },
+                { name: 'transportation', type: 'line', color: '#FF6B6B' },
+                { name: 'building', type: 'fill', color: '#FFD700' }
+            ];
+
+            layers.forEach(layer => {
+                try {
+                    map.addLayer({
+                        id: layer.name,
+                        type: layer.type,
+                        source: 'croatia',
+                        'source-layer': layer.name,
+                        paint: layer.type === 'fill' ? 
+                            { 'fill-color': layer.color } : 
+                            { 'line-color': layer.color, 'line-width': 2 }
+                    });
+                    console.log('✅ Added layer:', layer.name);
+                } catch (e) {
+                    console.log('❌ Layer not available:', layer.name);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

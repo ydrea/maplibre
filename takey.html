@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Croatia Map Filtered (Fixed Mask)</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .info-box {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      max-width: 300px;
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div class="info-box">
+  <h3>Croatia Map</h3>
+  <p>This map shows only Croatia, with the rest of the world masked out.</p>
+  <p>Croatia's border is highlighted with a red outline.</p>
+</div>
+<script>
+  // Simplified Croatia GeoJSON (for demonstration)
+  const croatiaGeoJSON = {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+          "type": "MultiPolygon",
+          "coordinates": [
+            [
+              [
+                [13.5, 45.1],
+                [19.5, 45.1],
+                [19.5, 46.6],
+                [13.5, 46.6],
+                [13.5, 45.1]
+              ]
+            ]
+          ]
+        }
+      }
+    ]
+  };
+
+  const map = new maplibregl.Map({
+    container: 'map',
+    style: {
+      "version": 8,
+      "name": "Bright",
+      "center": [15.2, 45.1],
+      "zoom": 7,
+      "bearing": 0,
+      "pitch": 0,
+      "sources": {
+        "openmaptiles": {
+          "type": "vector",
+          "url": "https://api.maptiler.com/tiles/v3-openmaptiles/tiles.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL"
+        },
+        "croatia": {
+          "type": "geojson",
+          "data": croatiaGeoJSON
+        }
+      },
+      "sprite": "https://openmaptiles.github.io/osm-bright-gl-style/sprite",
+      "glyphs": "https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=get_your_own_OpIi9ZULNHzrESv6T2vL",
+      "layers": [
+        {
+          "id": "background",
+          "type": "background",
+          "paint": {"background-color": "#f8f4f0"}
+        }
+      ]
+    }
+  });
+
+  map.on('load', () => {
+    // Add OpenMapTiles layers
+    map.addLayer({
+      "id": "landcover-glacier",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landcover",
+      "filter": ["==", "subclass", "glacier"],
+      "paint": {
+        "fill-color": "#fff",
+        "fill-opacity": {"base": 1, "stops": [[0, 0.9], [10, 0.3]]}
+      }
+    });
+
+    map.addLayer({
+      "id": "landuse-residential",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landuse",
+      "filter": ["==", "class", "residential"],
+      "paint": {
+        "fill-color": {
+          "base": 1,
+          "stops": [
+            [12, "hsla(35, 9%, 79%, 0.3)"],
+            [16, "hsla(35, 9%, 79%, 0.7)"]
+          ]
+        }
+      }
+    });
+
+    map.addLayer({
+      "id": "landuse-commercial",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landuse",
+      "filter": ["==", "class", "commercial"],
+      "paint": {
+        "fill-color": {
+          "base": 1,
+          "stops": [
+            [12, "hsla(35, 9%, 79%, 0.3)"],
+            [16, "hsla(35, 9%, 79%, 0.7)"]
+          ]
+        }
+      }
+    });
+
+    map.addLayer({
+      "id": "water",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "paint": {"fill-color": "#a0c8f0"}
+    });
+
+    map.addLayer({
+      "id": "waterway",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "waterway",
+      "paint": {
+        "line-color": "#a0c8f0",
+        "line-width": {"base": 1.3, "stops": [[10, 0.5], [20, 6]]}
+      }
+    });
+
+    map.addLayer({
+      "id": "road",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "paint": {
+        "line-color": "#fff",
+        "line-width": {"base": 1.3, "stops": [[10, 0.5], [20, 6]]}
+      }
+    });
+
+    map.addLayer({
+      "id": "road-label",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "transportation_name",
+      "layout": {
+        "text-field": "{name}",
+        "text-font": ["Noto Sans Regular"],
+        "text-size": {"base": 1, "stops": [[13, 12], [14, 13]]},
+        "symbol-placement": "line"
+      },
+      "paint": {
+        "text-color": "#765",
+        "text-halo-width": 1,
+        "text-halo-color": "rgba(255,255,255,0.7)"
+      }
+    });
+
+    // Create mask for everything outside Croatia
+    const world = turf.polygon([[[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]]]);
+    
+    // Create a mask by subtracting Croatia from the world
+    const croatiaPolygon = turf.multiPolygon(croatiaGeoJSON.features[0].geometry.coordinates);
+    const mask = turf.difference(world, croatiaPolygon);
+    
+    map.addSource('mask', { 
+      type: 'geojson', 
+      data: mask 
+    });
+
+    // Add the mask layer (this will cover everything except Croatia)
+    map.addLayer({
+      id: 'outside-mask',
+      type: 'fill',
+      source: 'mask',
+      paint: { 
+        'fill-color': '#fff', 
+        'fill-opacity': 1 
+      }
+    });
+
+    // Add Croatia outline
+    map.addLayer({
+      id: 'croatia-outline',
+      type: 'line',
+      source: 'croatia',
+      paint: { 
+        'line-color': 'red', 
+        'line-width': 3, 
+        'line-opacity': 1 
+      }
+    });
+  });
+</script>
+</body>
+</html>
